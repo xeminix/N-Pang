@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#3182f6" />
+<title>N-Pang 정산</title>
+<style>
+  :root {
+    --bg: #f2f4f6;
+    --card: #ffffff;
+    --line: #e5e8eb;
+    --text: #191f28;
+    --sub: #8b95a1;
+    --primary: #3182f6;
+    --primary-weak: #e8f1ff;
+    --danger: #f04452;
+    --ok: #00b894;
+    --radius: 16px;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.04);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", system-ui, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 16px 16px 80px; }
+
+  header.app {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 4px 16px;
+  }
+  header.app h1 { font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -.4px; }
+  header.app .mode-badge {
+    font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+    background: var(--primary-weak); color: var(--primary);
+  }
+
+  .card {
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 18px; margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 15px; font-weight: 800; margin: 0 0 14px; letter-spacing: -.3px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card h2 .hint { font-size: 12px; font-weight: 600; color: var(--sub); }
+
+  label.field { display: block; font-size: 13px; font-weight: 700; color: var(--sub); margin: 0 0 6px; }
+
+  input[type=text], input[type=number] {
+    width: 100%; border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; font-size: 16px; color: var(--text); background: #fff;
+    outline: none; transition: border-color .15s; font-family: inherit;
+  }
+  input:focus { border-color: var(--primary); }
+  input[type=number] { -moz-appearance: textfield; text-align: right; }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .row { display: flex; gap: 8px; align-items: center; }
+  .grow { flex: 1; }
+
+  button {
+    font-family: inherit; cursor: pointer; border: none; border-radius: 12px;
+    font-weight: 700; font-size: 14px; transition: transform .06s, background .15s, opacity .15s;
+  }
+  button:active { transform: scale(.97); }
+  .btn-primary { background: var(--primary); color: #fff; padding: 14px 18px; font-size: 16px; width: 100%; }
+  .btn-ghost { background: var(--primary-weak); color: var(--primary); padding: 10px 14px; }
+  .btn-line { background: #fff; color: var(--text); border: 1px solid var(--line); padding: 10px 14px; }
+  .btn-icon {
+    background: #f2f4f6; color: var(--sub); width: 34px; height: 34px; border-radius: 10px;
+    font-size: 18px; line-height: 1; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .btn-icon.danger { color: var(--danger); }
+
+  /* participants chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; background: #f2f4f6;
+    border-radius: 999px; padding: 7px 8px 7px 14px; font-size: 14px; font-weight: 600;
+  }
+  .chip button { background: transparent; color: var(--sub); font-size: 16px; line-height: 1; padding: 2px; }
+
+  /* round card */
+  .round { border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .round-head { display: flex; gap: 8px; margin-bottom: 10px; }
+  .round-head .idx {
+    flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9px; background: var(--primary-weak);
+    color: var(--primary); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center;
+  }
+  .contribs { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .contrib-row { display: flex; align-items: center; gap: 10px; }
+  .contrib-row .nm { flex: 1; font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .contrib-row .pct { width: 92px; flex: 0 0 auto; position: relative; }
+  .contrib-row .pct input { padding-right: 26px; }
+  .contrib-row .pct .suffix { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--sub); font-size: 14px; pointer-events: none; }
+  .sum-line { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 13px; font-weight: 700; }
+  .sum-line .bad { color: var(--danger); }
+  .sum-line .good { color: var(--ok); }
+
+  /* result */
+  .result-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 4px; border-bottom: 1px solid var(--line);
+  }
+  .result-item:last-child { border-bottom: none; }
+  .result-item .who { font-weight: 700; font-size: 16px; }
+  .result-item .amt { font-weight: 800; font-size: 18px; letter-spacing: -.3px; }
+  .result-item .amt.zero { color: var(--sub); font-weight: 600; }
+  .total-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 6px; padding: 14px 4px 2px; border-top: 2px solid var(--text);
+  }
+  .total-row .who { font-weight: 800; }
+  .total-row .amt { font-weight: 800; font-size: 18px; color: var(--primary); }
+
+  .pay-line { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+  .pay-line:last-child { border-bottom: none; }
+  .pay-line .k { color: var(--sub); font-weight: 700; font-size: 13px; flex: 0 0 auto; }
+  .pay-line .v { font-weight: 700; font-size: 14px; text-align: right; word-break: break-all; }
+  .pay-line .v button { margin-left: 6px; font-size: 12px; color: var(--primary); background: var(--primary-weak); padding: 4px 8px; border-radius: 8px; }
+
+  .empty { text-align: center; color: var(--sub); font-size: 14px; padding: 20px 0; }
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 420px) { .meta-grid { grid-template-columns: 1fr; } }
+
+  .actions { display: grid; gap: 10px; margin-top: 4px; }
+  .seg { display: flex; background: #e9edf2; border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 14px; }
+  .seg button { flex: 1; padding: 10px; background: transparent; color: var(--sub); border-radius: 9px; }
+  .seg button.active { background: #fff; color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+    background: #191f28; color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 600;
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .saved-note { text-align: center; color: var(--sub); font-size: 12px; margin: -4px 0 14px; }
+  .footer-note { text-align: center; color: var(--sub); font-size: 12px; margin-top: 18px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <h1>💸 <span id="docTitle">N-Pang 정산</span></h1>
+    <span class="mode-badge" id="modeBadge">편집 모드</span>
+  </header>
+
+  <div class="seg" id="modeSeg">
+    <button data-mode="edit" class="active">✏️ 편집</button>
+    <button data-mode="view">📋 결과</button>
+  </div>
+
+  <!-- ============ EDIT MODE ============ -->
+  <section id="editView">
+    <p class="saved-note" id="savedNote">마지막에 입력한 내용이 자동으로 저장됩니다 💾</p>
+
+    <div class="card">
+      <h2>📝 기본 정보</h2>
+      <label class="field" for="titleInput">정산 제목</label>
+      <input type="text" id="titleInput" placeholder="예: 8월 정기모임 정산" />
+    </div>
+
+    <div class="card">
+      <h2>👥 참가자 <span class="hint" id="pCount"></span></h2>
+      <div class="chips" id="chipList"></div>
+      <div class="row">
+        <input type="text" id="newName" class="grow" placeholder="이름 입력 후 추가" />
+        <button class="btn-ghost" id="addNameBtn">추가</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🧾 회차별 내역 <span class="hint">금액과 각자 기여도(%)</span></h2>
+      <div id="roundList"></div>
+      <button class="btn-line" id="addRoundBtn" style="width:100%; margin-top:4px;">+ 회차 추가</button>
+    </div>
+
+    <div class="card">
+      <h2>🏦 입금처</h2>
+      <div class="meta-grid">
+        <div>
+          <label class="field">은행</label>
+          <input type="text" id="payBank" placeholder="예: 우리은행" />
+        </div>
+        <div>
+          <label class="field">계좌번호</label>
+          <input type="text" id="payAccount" placeholder="예: 1002-697-800617" />
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <label class="field">카카오페이 / 토스</label>
+        <input type="text" id="payKakao" placeholder="예: 카카오톡 아이디 xeminix" />
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="goResultBtn">정산 결과 보기 →</button>
+      <button class="btn-line" id="resetBtn" style="color:var(--danger);">🗑 전체 초기화</button>
+    </div>
+  </section>
+
+  <!-- ============ VIEW MODE ============ -->
+  <section id="resultView" class="hidden">
+    <div class="card">
+      <h2>💰 1인당 정산 금액 <span class="hint" id="truncHint">100원 단위 절사</span></h2>
+      <div id="resultList"></div>
+    </div>
+
+    <div class="card" id="roundSummaryCard">
+      <h2>🧾 회차 요약</h2>
+      <div id="roundSummary"></div>
+    </div>
+
+    <div class="card" id="payCard">
+      <h2>🏦 입금처</h2>
+      <div id="payView"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="shareBtn">🔗 결과 링크 복사 (공유)</button>
+      <button class="btn-line" id="backEditBtn">← 편집으로 돌아가기</button>
+    </div>
+  </section>
+
+  <p class="footer-note">N-Pang 정산 · 데이터는 링크에만 담기고 서버에 저장되지 않습니다</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ---------- State ----------
+const DEFAULT_STATE = () => ({
+  title: "",
+  participants: [],
+  rounds: [],
+  pay: { bank: "", account: "", kakao: "" },
+  truncUnit: 100  // 엑셀 TRUNC(...,-2) = 100원 미만 절사
+});
+let state = DEFAULT_STATE();
+let mode = "edit";
+
+// ---------- Utils ----------
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const won = n => (Number.isFinite(n) ? n : 0).toLocaleString("ko-KR") + "원";
+
+function truncTo(value, unit) {
+  // 엑셀 TRUNC(...,-2)와 동일(toward zero). 부동소수점 누적오차는 원 단위 반올림으로 보정.
+  return Math.trunc(Math.round(value) / unit) * unit;
+}
+
+function encodeState(s) {
+  const json = JSON.stringify(s);
+  const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(json)));
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function decodeState(str) {
+  try {
+    let b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const json = new TextDecoder().decode(bytes);
+    const obj = JSON.parse(json);
+    if (typeof obj !== "object" || obj === null) return null;
+    return normalizeState(obj);
+  } catch (e) {
+    return null;
+  }
+}
+
+// 신뢰 불가 입력(공유 링크/로컬 저장본)을 안전한 형태로 정규화
+function normalizeState(obj) {
+  const base = DEFAULT_STATE();
+  const participants = Array.isArray(obj.participants) ? obj.participants.map(String) : [];
+  const rounds = Array.isArray(obj.rounds) ? obj.rounds.map(r => {
+    const contribs = {};
+    if (r && typeof r.contribs === "object" && r.contribs) {
+      Object.keys(r.contribs).forEach(k => {
+        const n = Number(r.contribs[k]);
+        if (Number.isFinite(n)) contribs[k] = n;
+      });
+    }
+    return {
+      place: r && typeof r.place === "string" ? r.place : "",
+      amount: r && r.amount === "" ? "" : (Number(r && r.amount) || 0),
+      contribs
+    };
+  }) : [];
+  const pay = (obj.pay && typeof obj.pay === "object") ? obj.pay : {};
+  return {
+    title: typeof obj.title === "string" ? obj.title : "",
+    participants,
+    rounds,
+    pay: {
+      bank: typeof pay.bank === "string" ? pay.bank : "",
+      account: typeof pay.account === "string" ? pay.account : "",
+      kakao: typeof pay.kakao === "string" ? pay.kakao : ""
+    },
+    truncUnit: Number(obj.truncUnit) > 0 ? Number(obj.truncUnit) : base.truncUnit
+  };
+}
+
+const LS_KEY = "npang_settlement_v1";
+function saveLocal() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+}
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (typeof obj !== "object" || obj === null) return null;
+    return normalizeState(obj);
+  } catch (e) { return null; }
+}
+function clearLocal() {
+  try { localStorage.removeItem(LS_KEY); } catch (e) {}
+}
+
+// ---------- Calculation ----------
+function computeSettlement() {
+  const totals = state.participants.map(() => 0);
+  state.rounds.forEach(r => {
+    const amount = Number(r.amount) || 0;
+    state.participants.forEach((_, i) => {
+      const pct = Number((r.contribs && r.contribs[i]) || 0);
+      totals[i] += amount * pct / 100;
+    });
+  });
+  const unit = state.truncUnit || 100;
+  return totals.map(t => truncTo(t, unit));
+}
+
+// ---------- Render: EDIT ----------
+function renderChips() {
+  const list = $("#chipList");
+  list.innerHTML = "";
+  if (state.participants.length === 0) {
+    list.innerHTML = '<span class="empty" style="padding:4px 0;">참가자를 추가하세요</span>';
+  }
+  state.participants.forEach((name, i) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.innerHTML = `<span>${escapeHtml(name)}</span>`;
+    const x = document.createElement("button");
+    x.textContent = "×";
+    x.setAttribute("aria-label", "삭제");
+    x.onclick = () => { removeParticipant(i); };
+    chip.appendChild(x);
+    list.appendChild(chip);
+  });
+  $("#pCount").textContent = state.participants.length ? `(${state.participants.length}명)` : "";
+}
+
+function renderRounds() {
+  const wrap = $("#roundList");
+  wrap.innerHTML = "";
+  if (state.rounds.length === 0) {
+    wrap.innerHTML = '<div class="empty">회차를 추가하세요</div>';
+    return;
+  }
+  state.rounds.forEach((r, ri) => {
+    const div = document.createElement("div");
+    div.className = "round";
+
+    const head = document.createElement("div");
+    head.className = "round-head";
+    head.innerHTML = `<div class="idx">${ri + 1}</div>`;
+    const placeInput = mkInput("text", r.place || "", "장소/내용 (예: 파일럿)");
+    placeInput.classList.add("grow");
+    placeInput.oninput = e => { r.place = e.target.value; saveLocal(); };
+    head.appendChild(placeInput);
+    const del = document.createElement("button");
+    del.className = "btn-icon danger"; del.textContent = "🗑"; del.title = "회차 삭제"; del.setAttribute("aria-label", "회차 삭제");
+    del.onclick = () => { state.rounds.splice(ri, 1); renderRounds(); saveLocal(); };
+    head.appendChild(del);
+    div.appendChild(head);
+
+    const amtWrap = document.createElement("div");
+    amtWrap.style.marginBottom = "12px";
+    const amtLabel = document.createElement("label");
+    amtLabel.className = "field"; amtLabel.textContent = "총 금액 (원)";
+    const amtInput = mkInput("number", r.amount ?? "", "0");
+    amtInput.inputMode = "numeric";
+    amtInput.oninput = e => { r.amount = e.target.value === "" ? "" : Number(e.target.value); saveLocal(); };
+    amtWrap.appendChild(amtLabel); amtWrap.appendChild(amtInput);
+    div.appendChild(amtWrap);
+
+    if (state.participants.length === 0) {
+      const note = document.createElement("div");
+      note.className = "empty"; note.style.padding = "4px 0";
+      note.textContent = "참가자를 먼저 추가하세요";
+      div.appendChild(note);
+    } else {
+      const cwrap = document.createElement("div");
+      cwrap.className = "contribs";
+      r.contribs = r.contribs || {};
+      state.participants.forEach((name, pi) => {
+        const row = document.createElement("div");
+        row.className = "contrib-row";
+        const nm = document.createElement("div");
+        nm.className = "nm"; nm.textContent = name;
+        const pct = document.createElement("div");
+        pct.className = "pct";
+        const inp = mkInput("number", r.contribs[pi] ?? "", "0");
+        inp.inputMode = "numeric";
+        inp.oninput = e => { r.contribs[pi] = e.target.value === "" ? 0 : Number(e.target.value); updateSumLine(div, r); saveLocal(); };
+        const suf = document.createElement("span"); suf.className = "suffix"; suf.textContent = "%";
+        pct.appendChild(inp); pct.appendChild(suf);
+        row.appendChild(nm); row.appendChild(pct);
+        cwrap.appendChild(row);
+      });
+      div.appendChild(cwrap);
+
+      const sumLine = document.createElement("div");
+      sumLine.className = "sum-line";
+      div.appendChild(sumLine);
+      updateSumLine(div, r);
+
+      const eq = document.createElement("button");
+      eq.className = "btn-line"; eq.style.cssText = "width:100%;margin-top:10px;font-size:13px;";
+      eq.textContent = "⚖️ 균등 분배 (n빵)";
+      eq.onclick = () => {
+        const n = state.participants.length;
+        const base = Math.floor(100 / n);
+        let rem = 100 - base * n;
+        state.participants.forEach((_, pi) => { r.contribs[pi] = base + (pi < rem ? 1 : 0); });
+        renderRounds(); saveLocal();
+      };
+      div.appendChild(eq);
+    }
+    wrap.appendChild(div);
+  });
+}
+
+function updateSumLine(div, r) {
+  const line = $(".sum-line", div);
+  if (!line) return;
+  let sum = 0;
+  state.participants.forEach((_, pi) => { sum += Number((r.contribs && r.contribs[pi]) || 0); });
+  const ok = sum === 100;
+  line.innerHTML = `<span>기여도 합계</span><span class="${ok ? "good" : "bad"}">${sum}% ${ok ? "✓" : "(100%이어야 함)"}</span>`;
+}
+
+function mkInput(type, value, ph) {
+  const i = document.createElement("input");
+  i.type = type; i.value = value; i.placeholder = ph || "";
+  return i;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function renderEditMeta() {
+  $("#titleInput").value = state.title || "";
+  $("#payBank").value = state.pay.bank || "";
+  $("#payAccount").value = state.pay.account || "";
+  $("#payKakao").value = state.pay.kakao || "";
+}
+
+// ---------- Render: VIEW ----------
+function renderResult() {
+  $("#docTitle").textContent = state.title || "N-Pang 정산";
+  document.title = (state.title ? state.title + " · " : "") + "N-Pang 정산";
+
+  const totals = computeSettlement();
+  const list = $("#resultList");
+  list.innerHTML = "";
+  if (state.participants.length === 0) {
+    list.innerHTML = '<div class="empty">참가자가 없습니다</div>';
+  } else {
+    state.participants.forEach((name, i) => {
+      const item = document.createElement("div");
+      item.className = "result-item";
+      const z = totals[i] === 0;
+      item.innerHTML = `<span class="who">${escapeHtml(name)}</span><span class="amt ${z ? "zero" : ""}">${won(totals[i])}</span>`;
+      list.appendChild(item);
+    });
+    const grand = totals.reduce((a, b) => a + b, 0);
+    const tr = document.createElement("div");
+    tr.className = "total-row";
+    tr.innerHTML = `<span class="who">합계</span><span class="amt">${won(grand)}</span>`;
+    list.appendChild(tr);
+  }
+  $("#truncHint").textContent = (state.truncUnit || 100) + "원 단위 절사";
+
+  // round summary
+  const rs = $("#roundSummary");
+  rs.innerHTML = "";
+  if (state.rounds.length === 0) {
+    $("#roundSummaryCard").classList.add("hidden");
+  } else {
+    $("#roundSummaryCard").classList.remove("hidden");
+    state.rounds.forEach((r, ri) => {
+      const line = document.createElement("div");
+      line.className = "pay-line";
+      const amt = Number(r.amount) || 0;
+      line.innerHTML = `<span class="k">${ri + 1}. ${escapeHtml(r.place || "회차 " + (ri + 1))}</span><span class="v">${won(amt)}</span>`;
+      rs.appendChild(line);
+    });
+    const total = state.rounds.reduce((a, r) => a + (Number(r.amount) || 0), 0);
+    const tl = document.createElement("div");
+    tl.className = "pay-line";
+    tl.innerHTML = `<span class="k" style="color:var(--text)">총 지출</span><span class="v" style="color:var(--primary)">${won(total)}</span>`;
+    rs.appendChild(tl);
+  }
+
+  // pay
+  const pv = $("#payView");
+  pv.innerHTML = "";
+  const hasPay = state.pay.bank || state.pay.account || state.pay.kakao;
+  if (!hasPay) {
+    $("#payCard").classList.add("hidden");
+  } else {
+    $("#payCard").classList.remove("hidden");
+    if (state.pay.bank || state.pay.account) {
+      const v = [state.pay.bank, state.pay.account].filter(Boolean).join(" ");
+      pv.appendChild(payLine("계좌", v, state.pay.account || v));
+    }
+    if (state.pay.kakao) pv.appendChild(payLine("카카오/토스", state.pay.kakao, state.pay.kakao));
+  }
+}
+
+function payLine(k, display, copyVal) {
+  const d = document.createElement("div");
+  d.className = "pay-line";
+  d.innerHTML = `<span class="k">${k}</span>`;
+  const v = document.createElement("span");
+  v.className = "v";
+  v.textContent = display;
+  const btn = document.createElement("button");
+  btn.textContent = "복사";
+  btn.onclick = () => copyText(copyVal, "복사했어요");
+  v.appendChild(btn);
+  d.appendChild(v);
+  return d;
+}
+
+// ---------- Actions ----------
+function addParticipant() {
+  const inp = $("#newName");
+  const name = inp.value.trim();
+  if (!name) return;
+  state.participants.push(name);
+  inp.value = "";
+  renderChips(); renderRounds(); saveLocal();
+  inp.focus();
+}
+function removeParticipant(i) {
+  state.participants.splice(i, 1);
+  // reindex contribs
+  state.rounds.forEach(r => {
+    if (!r.contribs) return;
+    const nc = {};
+    Object.keys(r.contribs).map(Number).sort((a, b) => a - b).forEach(k => {
+      if (k < i) nc[k] = r.contribs[k];
+      else if (k > i) nc[k - 1] = r.contribs[k];
+    });
+    r.contribs = nc;
+  });
+  renderChips(); renderRounds(); saveLocal();
+}
+function addRound() {
+  state.rounds.push({ place: "", amount: "", contribs: {} });
+  renderRounds(); saveLocal();
+  // scroll to new
+  const list = $("#roundList");
+  const last = list.lastElementChild;
+  if (last && last.scrollIntoView) last.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function resetAll() {
+  if (!confirm("입력한 내용을 모두 지우고 처음부터 다시 시작할까요?\n(저장된 마지막 기록도 삭제됩니다)")) return;
+  state = DEFAULT_STATE();
+  clearLocal();
+  if (location.hash) history.replaceState(null, "", location.pathname);
+  renderEditMeta();
+  setMode("edit");
+  showToast("초기화했어요");
+}
+
+function setMode(m) {
+  mode = m;
+  $$("#modeSeg button").forEach(b => b.classList.toggle("active", b.dataset.mode === m));
+  $("#modeBadge").textContent = m === "edit" ? "편집 모드" : "결과 보기";
+  $("#editView").classList.toggle("hidden", m !== "edit");
+  $("#resultView").classList.toggle("hidden", m !== "view");
+  if (m === "edit") { renderEditMeta(); renderChips(); renderRounds(); }
+  else renderResult();
+  window.scrollTo({ top: 0 });
+}
+
+function copyText(text, msg) {
+  const done = () => showToast(msg || "복사했어요");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); done(); } catch (e) { showToast("복사 실패"); }
+  document.body.removeChild(ta);
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const t = $("#toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+// ---------- Init ----------
+function init() {
+  // bindings
+  $("#addNameBtn").onclick = addParticipant;
+  $("#newName").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addParticipant(); } });
+  $("#addRoundBtn").onclick = addRound;
+  $("#resetBtn").onclick = resetAll;
+  $("#titleInput").oninput = e => { state.title = e.target.value; saveLocal(); };
+  $("#payBank").oninput = e => { state.pay.bank = e.target.value; saveLocal(); };
+  $("#payAccount").oninput = e => { state.pay.account = e.target.value; saveLocal(); };
+  $("#payKakao").oninput = e => { state.pay.kakao = e.target.value; saveLocal(); };
+  $("#goResultBtn").onclick = () => setMode("view");
+  $("#backEditBtn").onclick = () => setMode("edit");
+  $$("#modeSeg button").forEach(b => b.onclick = () => setMode(b.dataset.mode));
+  $("#shareBtn").onclick = () => {
+    const enc = encodeState(state);
+    const url = location.origin + location.pathname + "#d=" + enc;
+    history.replaceState(null, "", "#d=" + enc);
+    copyText(url, "결과 링크를 복사했어요 🔗");
+  };
+
+  // load from hash (shared) → view mode
+  const hash = location.hash || "";
+  const m = hash.match(/[#&]d=([^&]+)/);
+  if (m) {
+    const decoded = decodeState(m[1]);
+    if (decoded) {
+      state = decoded;
+      renderEditMeta();
+      setMode("view");
+      return;
+    }
+  }
+
+  // else load local draft (마지막 입력 복원)
+  const local = loadLocal();
+  if (local) state = local;
+
+  renderEditMeta();
+  setMode("edit");
+}
+
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
